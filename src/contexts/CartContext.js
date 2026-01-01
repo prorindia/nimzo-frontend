@@ -6,7 +6,7 @@ import React, {
   useCallback
 } from "react";
 import API from "../api/api";
-import { useAuth } from "./AuthContext"; // ✅ IMPORTANT
+import { useAuth } from "./AuthContext";
 
 const CartContext = createContext(null);
 
@@ -19,14 +19,26 @@ export const useCart = () => {
 };
 
 export const CartProvider = ({ children }) => {
-  const { isAuthenticated } = useAuth(); // ✅ auth state
+  const { isAuthenticated } = useAuth();
+
   const [cart, setCart] = useState({
     items: [],
     total: 0,
     item_count: 0,
     savings: 0
   });
+
   const [loading, setLoading] = useState(false);
+
+  // 🔥 HARD RESET CART (logout / auth change)
+  const resetCartState = () => {
+    setCart({
+      items: [],
+      total: 0,
+      item_count: 0,
+      savings: 0
+    });
+  };
 
   // 🔹 Fetch cart (ONLY when logged in)
   const fetchCart = useCallback(async () => {
@@ -43,9 +55,12 @@ export const CartProvider = ({ children }) => {
     }
   }, []);
 
-  // ✅ FIX: cart API call only after login
+  // ✅ Sync cart with auth state
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated) {
+      resetCartState(); // 🔥 logout fix
+      return;
+    }
     fetchCart().catch(() => {});
   }, [isAuthenticated, fetchCart]);
 
@@ -91,8 +106,12 @@ export const CartProvider = ({ children }) => {
     }
   };
 
-  // 🧹 Clear cart
-  const clearCart = async () => {
+  // 🧹 Clear cart (manual or silent)
+  const clearCart = async ({ silent = false } = {}) => {
+    if (silent) {
+      resetCartState(); // logout safe
+      return true;
+    }
     try {
       await API.delete("/cart/clear");
       await fetchCart();

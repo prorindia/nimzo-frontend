@@ -20,6 +20,7 @@ export const AuthProvider = ({ children }) => {
     const savedToken = localStorage.getItem("token");
     if (savedToken) {
       setToken(savedToken);
+      API.defaults.headers.common["Authorization"] = `Bearer ${savedToken}`;
     }
     setLoading(false);
   }, []);
@@ -35,14 +36,15 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // 🔐 VERIFY OTP  ✅ FIX IS HERE
+  // 🔐 VERIFY OTP
   const verifyOtp = async (phone, otp) => {
     try {
       const res = await API.post("/auth/verify-otp", { phone, otp });
 
-      const accessToken = res.data.access_token; // 🔥 CORRECT KEY
+      const accessToken = res.data.access_token;
 
       localStorage.setItem("token", accessToken);
+      API.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`;
       setToken(accessToken);
 
       return true;
@@ -52,8 +54,18 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
+  // 🔓 LOGOUT (🔥 FINAL & CORRECT)
+  const logout = async () => {
+    try {
+      // 🔥 clear backend cart for this user
+      await API.delete("/cart/clear");
+    } catch (e) {
+      // ignore
+    }
+
+    // 🔥 clear auth
     localStorage.removeItem("token");
+    delete API.defaults.headers.common["Authorization"];
     setToken(null);
   };
 
