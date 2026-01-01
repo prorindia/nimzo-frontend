@@ -22,8 +22,9 @@ const AuthPage = () => {
       setLoading(true);
       setError("");
 
-      await API.post("/auth/send-otp", {
-        phone: phone, // backend mock ke liye +91 ki zarurat nahi
+      // ✅ FIXED API PATH
+      await API.post("/api/auth/send-otp", {
+        phone: phone,
       });
 
       setStep("OTP");
@@ -45,7 +46,8 @@ const AuthPage = () => {
       setLoading(true);
       setError("");
 
-      const res = await API.post("/auth/verify-otp", {
+      // ✅ FIXED API PATH
+      const res = await API.post("/api/auth/verify-otp", {
         phone: phone,
         otp,
       });
