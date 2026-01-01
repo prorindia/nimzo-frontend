@@ -9,15 +9,27 @@ const ProductCard = ({ product }) => {
   const quantity = getItemQuantity(product.id);
 
   const handleAdd = async () => {
-    setLoading(true);
-    await addToCart(product.id, 1);
-    setLoading(false);
+    try {
+      setLoading(true);
+      await addToCart(product.id, 1);
+    } catch (error) {
+      console.error("ADD TO CART FAILED", error);
+      alert("Add to cart failed");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleUpdate = async (newQty) => {
-    setLoading(true);
-    await updateCartItem(product.id, newQty);
-    setLoading(false);
+    try {
+      setLoading(true);
+      await updateCartItem(product.id, newQty);
+    } catch (error) {
+      console.error("UPDATE CART FAILED", error);
+      alert("Update cart failed");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -48,6 +60,7 @@ const ProductCard = ({ product }) => {
         <div className="flex items-center justify-between mt-2 bg-[#CCFF00] rounded-lg">
           <button
             onClick={() => handleUpdate(quantity - 1)}
+            disabled={loading}
             className="px-3 py-2"
           >
             <Minus size={16} />
@@ -57,6 +70,7 @@ const ProductCard = ({ product }) => {
 
           <button
             onClick={() => handleUpdate(quantity + 1)}
+            disabled={loading}
             className="px-3 py-2"
           >
             <Plus size={16} />

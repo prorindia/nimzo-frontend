@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import API from "../api/api"; // ✅ single source of truth
+import API from "../api/api";
 
 const AuthPage = () => {
   const navigate = useNavigate();
@@ -9,8 +9,6 @@ const AuthPage = () => {
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  console.log("OTP AUTH PAGE LOADED");
 
   const sendOtp = async () => {
     if (phone.length !== 10) {
@@ -22,10 +20,8 @@ const AuthPage = () => {
       setLoading(true);
       setError("");
 
-      // ✅ FIXED API PATH
-      await API.post("/api/auth/send-otp", {
-        phone: phone,
-      });
+      // ✅ CORRECT
+      await API.post("/auth/send-otp", { phone });
 
       setStep("OTP");
     } catch (err) {
@@ -46,15 +42,13 @@ const AuthPage = () => {
       setLoading(true);
       setError("");
 
-      // ✅ FIXED API PATH
-      const res = await API.post("/api/auth/verify-otp", {
-        phone: phone,
+      // ✅ CORRECT
+      const res = await API.post("/auth/verify-otp", {
+        phone,
         otp,
       });
 
-      // ✅ SAME KEY EVERYWHERE
       localStorage.setItem("token", res.data.token);
-
       navigate("/");
     } catch (err) {
       console.error(err);
