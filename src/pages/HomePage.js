@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
-import { Search, MapPin, ChevronRight, Clock } from 'lucide-react';
+import { Search, MapPin, Clock } from 'lucide-react';
 import ProductCard from '../components/ProductCard';
 import CategoryCard from '../components/CategoryCard';
 
@@ -13,11 +13,12 @@ const API = `${BACKEND_URL}/api`;
 
 const HomePage = () => {
   const [categories, setCategories] = useState([]);
-  const [products, setProducts] = useState([]); // backend products
+  const [products, setProducts] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [pincode, setPincode] = useState(localStorage.getItem('nimzo_pincode') || '');
   const [pincodeValid, setPincodeValid] = useState(null);
+  const [activeCategory, setActiveCategory] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -32,9 +33,27 @@ const HomePage = () => {
       ]);
       setCategories(catRes.data);
       setProducts(prodRes.data);
+      setActiveCategory(null);
     } catch (error) {
       console.error('Error fetching data:', error);
-      setProducts([]); // fallback handled in UI
+      setProducts([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 🔥 CATEGORY FILTER
+  const fetchProductsByCategory = async (categoryName) => {
+    try {
+      setLoading(true);
+      setActiveCategory(categoryName);
+      const res = await axios.get(
+        `${API}/products?category=${encodeURIComponent(categoryName)}`
+      );
+      setProducts(res.data);
+      setSearchQuery('');
+    } catch (err) {
+      console.error('Category filter error', err);
     } finally {
       setLoading(false);
     }
@@ -52,6 +71,7 @@ const HomePage = () => {
         `${API}/products?search=${encodeURIComponent(searchQuery)}`
       );
       setProducts(response.data);
+      setActiveCategory(null);
     } catch (error) {
       console.error('Search error:', error);
     } finally {
@@ -75,7 +95,6 @@ const HomePage = () => {
     }
   };
 
-  // ✅ final products source (backend OR dummy)
   const finalProducts = products.length > 0 ? products : productList;
 
   return (
@@ -96,6 +115,7 @@ const HomePage = () => {
                 </div>
               </div>
             </div>
+
             <div className="flex items-center gap-2">
               <MapPin size={16} className="text-[#CCFF00]" />
               <input
@@ -125,14 +145,15 @@ const HomePage = () => {
           </form>
         </div>
       </header>
-      {/* 🔥 Banner Section */}
-<div className="max-w-md mx-auto md:max-w-7xl px-4 py-4">
-  <img
-    src="/banners/banner1.jpg.webp"
-    alt="Nimzo Offer"
-    className="w-full h-40 md:h-56 object-cover rounded-2xl shadow-md"
-  />
-</div>
+
+      {/* Banner */}
+      <div className="max-w-md mx-auto md:max-w-7xl px-4 py-4">
+        <img
+          src="/banners/banner1.jpg.webp"
+          alt="Nimzo Offer"
+          className="w-full h-40 md:h-56 object-cover rounded-2xl shadow-md"
+        />
+      </div>
 
       {/* Main */}
       <main className="max-w-md mx-auto md:max-w-7xl px-4 py-6">
@@ -141,7 +162,11 @@ const HomePage = () => {
           <h3 className="text-lg font-bold mb-4">Shop by Category</h3>
           <div className="grid grid-cols-4 md:grid-cols-7 gap-3">
             {categories.slice(0, 7).map((category) => (
-              <CategoryCard key={category.id} category={category} />
+              <CategoryCard
+                key={category.id}
+                category={category}
+                onClick={fetchProductsByCategory}
+              />
             ))}
           </div>
         </section>
@@ -149,7 +174,11 @@ const HomePage = () => {
         {/* Products */}
         <section>
           <h3 className="text-lg font-bold mb-4">
-            {searchQuery ? `Results for "${searchQuery}"` : 'Popular Products'}
+            {activeCategory
+              ? activeCategory
+              : searchQuery
+              ? `Results for "${searchQuery}"`
+              : 'Popular Products'}
           </h3>
 
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">

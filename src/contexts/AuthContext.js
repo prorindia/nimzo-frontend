@@ -1,80 +1,84 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { createContext, useContext, useEffect, useState } from "react";
+import axios from "axios";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+const API = `${BACKEND_URL}`;
 
 const AuthContext = createContext(null);
 
+/* ✅ hook */
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within AuthProvider");
   }
   return context;
 };
 
+/* ✅ provider */
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(localStorage.getItem('flashmart_token'));
   const [loading, setLoading] = useState(true);
 
+  /* 🔁 Restore login from token (MOST IMPORTANT FIX) */
   useEffect(() => {
+    const token = localStorage.getItem("flashmart_token");
     if (token) {
-      fetchUser();
-    } else {
-      setLoading(false);
+      setUser({ token }); // dummy user to keep auth state
     }
-  }, [token]);
+    setLoading(false);
+  }, []);
 
-  const fetchUser = async () => {
+  /* 🔐 SEND OTP */
+  const sendOtp = async (phone) => {
     try {
-      const response = await axios.get(`${API}/auth/me`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setUser(response.data);
-    } catch (error) {
-      console.error('Auth error:', error);
-      logout();
+      setLoading(true);
+      await axios.post(`${API}/auth/send-otp`, { phone });
+      return true;
+    } catch (err) {
+      console.error("Send OTP error", err);
+      return false;
     } finally {
       setLoading(false);
     }
   };
 
-  const login = async (email, password) => {
-    const response = await axios.post(`${API}/auth/login`, { email, password });
-    const { token: newToken, user: userData } = response.data;
-    localStorage.setItem('flashmart_token', newToken);
-    setToken(newToken);
-    setUser(userData);
-    return userData;
-  };
+  /* 🔐 VERIFY OTP */
+  const verifyOtp = async (phone, otp) => {
+    try {
+      setLoading(true);
+      const res = await axios.post(`${API}/auth/verify-otp`, { phone, otp });
 
-  const register = async (name, email, password, phone) => {
-    const response = await axios.post(`${API}/auth/register`, { name, email, password, phone });
-    const { token: newToken, user: userData } = response.data;
-    localStorage.setItem('flashmart_token', newToken);
-    setToken(newToken);
-    setUser(userData);
-    return userData;
+      // ✅ SAVE TOKEN (CRITICAL)
+      localStorage.setItem("flashmart_token", res.data.access_token);
+
+      setUser(res.data.user || { token: res.data.access_token });
+      return true;
+    } catch (err) {
+      console.error("Verify OTP error", err);
+      return false;
+    } finally {
+      setLoading(false);
+    }
   };
 
   const logout = () => {
-    localStorage.removeItem('flashmart_token');
-    setToken(null);
+    localStorage.removeItem("flashmart_token");
     setUser(null);
   };
 
-  const value = {
-    user,
-    token,
-    loading,
-    login,
-    register,
-    logout,
-    isAuthenticated: !!user,
-    isAdmin: user?.is_admin || false,
-  };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        sendOtp,
+        verifyOtp,
+        logout,
+        isAuthenticated: !!user,
+      }}
+    >
+      {!loading && children}
+    </AuthContext.Provider>
+  );
 };
