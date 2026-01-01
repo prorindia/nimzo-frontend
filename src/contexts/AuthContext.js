@@ -3,7 +3,6 @@ import API from "../api/api";
 
 const AuthContext = createContext(null);
 
-/* ✅ hook */
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -12,12 +11,11 @@ export const useAuth = () => {
   return context;
 };
 
-/* ✅ provider */
 export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // 🔁 Restore login from localStorage (🔥 MOST IMPORTANT)
+  // 🔁 Restore login from localStorage
   useEffect(() => {
     const savedToken = localStorage.getItem("token");
     if (savedToken) {
@@ -37,14 +35,15 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // 🔐 VERIFY OTP
+  // 🔐 VERIFY OTP  ✅ FIX IS HERE
   const verifyOtp = async (phone, otp) => {
     try {
       const res = await API.post("/auth/verify-otp", { phone, otp });
 
-      // ✅ SINGLE SOURCE OF TRUTH
-      localStorage.setItem("token", res.data.token);
-      setToken(res.data.token);
+      const accessToken = res.data.access_token; // 🔥 CORRECT KEY
+
+      localStorage.setItem("token", accessToken);
+      setToken(accessToken);
 
       return true;
     } catch (err) {
@@ -62,7 +61,7 @@ export const AuthProvider = ({ children }) => {
     <AuthContext.Provider
       value={{
         token,
-        isAuthenticated: !!token, // 🔥 THIS FIXES CART / PROFILE ISSUE
+        isAuthenticated: !!token,
         loading,
         sendOtp,
         verifyOtp,
