@@ -3,7 +3,6 @@ import API from "../api/api";
 
 const AuthContext = createContext(null);
 
-/* ✅ hook */
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -12,21 +11,20 @@ export const useAuth = () => {
   return context;
 };
 
-/* ✅ provider */
 export const AuthProvider = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  /* 🔁 Restore login from token (MOST IMPORTANT FIX) */
+  // 🔁 Restore login from token
   useEffect(() => {
-    const token = localStorage.getItem("token"); // ✅ SAME KEY
+    const token = localStorage.getItem("token");
     if (token) {
-      setIsAuthenticated(true);
+      setUser({ token }); // dummy user, enough for auth
     }
     setLoading(false);
   }, []);
 
-  /* 🔐 SEND OTP */
+  // 🔐 SEND OTP
   const sendOtp = async (phone) => {
     try {
       await API.post("/auth/send-otp", { phone });
@@ -37,15 +35,14 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  /* 🔐 VERIFY OTP */
+  // 🔐 VERIFY OTP
   const verifyOtp = async (phone, otp) => {
     try {
       const res = await API.post("/auth/verify-otp", { phone, otp });
 
-      // ✅ SAVE TOKEN (ONE & ONLY KEY)
       localStorage.setItem("token", res.data.token);
+      setUser({ token: res.data.token });
 
-      setIsAuthenticated(true); // 🔥 THIS FIXES CART/PROFILE
       return true;
     } catch (err) {
       console.error("Verify OTP error", err);
@@ -55,13 +52,14 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     localStorage.removeItem("token");
-    setIsAuthenticated(false);
+    setUser(null);
   };
 
   return (
     <AuthContext.Provider
       value={{
-        isAuthenticated,
+        user,
+        isAuthenticated: !!user,
         loading,
         sendOtp,
         verifyOtp,
