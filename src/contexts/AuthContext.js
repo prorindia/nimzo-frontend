@@ -1,8 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import axios from "axios";
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}`;
+import API from "../api/api";
 
 const AuthContext = createContext(null);
 
@@ -17,14 +14,14 @@ export const useAuth = () => {
 
 /* ✅ provider */
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
 
   /* 🔁 Restore login from token (MOST IMPORTANT FIX) */
   useEffect(() => {
-    const token = localStorage.getItem("flashmart_token");
+    const token = localStorage.getItem("token"); // ✅ SAME KEY
     if (token) {
-      setUser({ token }); // dummy user to keep auth state
+      setIsAuthenticated(true);
     }
     setLoading(false);
   }, []);
@@ -32,50 +29,43 @@ export const AuthProvider = ({ children }) => {
   /* 🔐 SEND OTP */
   const sendOtp = async (phone) => {
     try {
-      setLoading(true);
-      await axios.post(`${API}/auth/send-otp`, { phone });
+      await API.post("/auth/send-otp", { phone });
       return true;
     } catch (err) {
       console.error("Send OTP error", err);
       return false;
-    } finally {
-      setLoading(false);
     }
   };
 
   /* 🔐 VERIFY OTP */
   const verifyOtp = async (phone, otp) => {
     try {
-      setLoading(true);
-      const res = await axios.post(`${API}/auth/verify-otp`, { phone, otp });
+      const res = await API.post("/auth/verify-otp", { phone, otp });
 
-      // ✅ SAVE TOKEN (CRITICAL)
-      localStorage.setItem("flashmart_token", res.data.access_token);
+      // ✅ SAVE TOKEN (ONE & ONLY KEY)
+      localStorage.setItem("token", res.data.token);
 
-      setUser(res.data.user || { token: res.data.access_token });
+      setIsAuthenticated(true); // 🔥 THIS FIXES CART/PROFILE
       return true;
     } catch (err) {
       console.error("Verify OTP error", err);
       return false;
-    } finally {
-      setLoading(false);
     }
   };
 
   const logout = () => {
-    localStorage.removeItem("flashmart_token");
-    setUser(null);
+    localStorage.removeItem("token");
+    setIsAuthenticated(false);
   };
 
   return (
     <AuthContext.Provider
       value={{
-        user,
+        isAuthenticated,
         loading,
         sendOtp,
         verifyOtp,
         logout,
-        isAuthenticated: !!user,
       }}
     >
       {!loading && children}
