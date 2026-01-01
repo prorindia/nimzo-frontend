@@ -3,6 +3,7 @@ import API from "../api/api";
 
 const AuthContext = createContext(null);
 
+/* ✅ hook */
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -11,15 +12,16 @@ export const useAuth = () => {
   return context;
 };
 
+/* ✅ provider */
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // 🔁 Restore login from token
+  // 🔁 Restore login from localStorage (🔥 MOST IMPORTANT)
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      setUser({ token }); // dummy user, enough for auth
+    const savedToken = localStorage.getItem("token");
+    if (savedToken) {
+      setToken(savedToken);
     }
     setLoading(false);
   }, []);
@@ -40,8 +42,9 @@ export const AuthProvider = ({ children }) => {
     try {
       const res = await API.post("/auth/verify-otp", { phone, otp });
 
+      // ✅ SINGLE SOURCE OF TRUTH
       localStorage.setItem("token", res.data.token);
-      setUser({ token: res.data.token });
+      setToken(res.data.token);
 
       return true;
     } catch (err) {
@@ -52,14 +55,14 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     localStorage.removeItem("token");
-    setUser(null);
+    setToken(null);
   };
 
   return (
     <AuthContext.Provider
       value={{
-        user,
-        isAuthenticated: !!user,
+        token,
+        isAuthenticated: !!token, // 🔥 THIS FIXES CART / PROFILE ISSUE
         loading,
         sendOtp,
         verifyOtp,
