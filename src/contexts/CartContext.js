@@ -6,6 +6,7 @@ import React, {
   useCallback
 } from "react";
 import API from "../api/api";
+import { useAuth } from "./AuthContext"; // ✅ IMPORTANT
 
 const CartContext = createContext(null);
 
@@ -18,6 +19,7 @@ export const useCart = () => {
 };
 
 export const CartProvider = ({ children }) => {
+  const { isAuthenticated } = useAuth(); // ✅ auth state
   const [cart, setCart] = useState({
     items: [],
     total: 0,
@@ -26,7 +28,7 @@ export const CartProvider = ({ children }) => {
   });
   const [loading, setLoading] = useState(false);
 
-  // 🔹 Fetch cart
+  // 🔹 Fetch cart (ONLY when logged in)
   const fetchCart = useCallback(async () => {
     try {
       setLoading(true);
@@ -41,34 +43,34 @@ export const CartProvider = ({ children }) => {
     }
   }, []);
 
+  // ✅ FIX: cart API call only after login
   useEffect(() => {
+    if (!isAuthenticated) return;
     fetchCart().catch(() => {});
-  }, [fetchCart]);
+  }, [isAuthenticated, fetchCart]);
 
-  // ➕ Add to cart (FIXED)
+  // ➕ Add to cart
   const addToCart = async (productId, quantity = 1) => {
     try {
       await API.post("/cart/add", {
         product_id: productId,
         quantity
       });
-
-      await fetchCart(); // 🔥 MUST await
+      await fetchCart();
       return true;
     } catch (err) {
       console.error("Add to cart error:", err);
-      throw err; // 🔥 IMPORTANT
+      throw err;
     }
   };
 
-  // 🔄 Update quantity (FIXED)
+  // 🔄 Update quantity
   const updateCartItem = async (productId, quantity) => {
     try {
       await API.put("/cart/update", {
         product_id: productId,
         quantity
       });
-
       await fetchCart();
       return true;
     } catch (err) {
