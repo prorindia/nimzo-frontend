@@ -1,9 +1,10 @@
 import axios from "axios";
 
 const API = axios.create({
-  baseURL: process.env.REACT_APP_BACKEND_URL + "/api", // ✅ REQUIRED
+  baseURL: "http://127.0.0.1:5000/api", // 🔥 HARD FIX
 });
 
+// 🔐 ALWAYS attach JWT
 API.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");

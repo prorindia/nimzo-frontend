@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { Plus, Minus } from 'lucide-react';
-import { useCart } from '../contexts/CartContext';
+import React, { useState } from "react";
+import { Plus, Minus } from "lucide-react";
+import { useCart } from "../contexts/CartContext";
 
 const ProductCard = ({ product }) => {
   const { addToCart, updateCartItem, getItemQuantity } = useCart();
@@ -8,25 +8,28 @@ const ProductCard = ({ product }) => {
 
   const quantity = getItemQuantity(product.id);
 
+  // ➕ ADD PRODUCT
   const handleAdd = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      await addToCart(product.id, 1);
+      // ✅ FIX: product object bhi pass karo
+      await addToCart(product.id, 1, product);
     } catch (error) {
-      console.error("ADD TO CART FAILED", error);
-      alert("Add to cart failed");
+      console.error("ADD TO CART ERROR:", error);
     } finally {
       setLoading(false);
     }
   };
 
+  // 🔄 UPDATE QUANTITY
   const handleUpdate = async (newQty) => {
+    if (newQty < 0) return;
+
+    setLoading(true);
     try {
-      setLoading(true);
       await updateCartItem(product.id, newQty);
     } catch (error) {
-      console.error("UPDATE CART FAILED", error);
-      alert("Update cart failed");
+      console.error("UPDATE CART ERROR:", error);
     } finally {
       setLoading(false);
     }
@@ -54,7 +57,7 @@ const ProductCard = ({ product }) => {
           disabled={loading}
           className="w-full mt-2 py-2 bg-[#CCFF00] rounded-lg font-bold"
         >
-          {loading ? 'ADDING...' : 'ADD'}
+          {loading ? "ADDING..." : "ADD"}
         </button>
       ) : (
         <div className="flex items-center justify-between mt-2 bg-[#CCFF00] rounded-lg">

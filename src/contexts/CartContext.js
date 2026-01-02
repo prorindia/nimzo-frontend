@@ -10,6 +10,15 @@ import { useAuth } from "./AuthContext";
 
 const CartContext = createContext(null);
 
+// ✅ TOKEN HELPER
+const getValidToken = () => {
+  const token = localStorage.getItem("token");
+  if (!token || token === "undefined" || token === "null") {
+    return null;
+  }
+  return token;
+};
+
 export const useCart = () => {
   const context = useContext(CartContext);
   if (!context) {
@@ -19,7 +28,7 @@ export const useCart = () => {
 };
 
 export const CartProvider = ({ children }) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading: authLoading } = useAuth();
 
   const [cart, setCart] = useState({
     items: [],
@@ -30,7 +39,7 @@ export const CartProvider = ({ children }) => {
 
   const [loading, setLoading] = useState(false);
 
-  // 🔥 HARD RESET CART (logout / auth change)
+  // 🔥 RESET CART
   const resetCartState = () => {
     setCart({
       items: [],
@@ -40,8 +49,11 @@ export const CartProvider = ({ children }) => {
     });
   };
 
-  // 🔹 Fetch cart (ONLY when logged in)
+  // 🔹 FETCH CART
   const fetchCart = useCallback(async () => {
+    const token = getValidToken();
+    if (!token) return;
+
     try {
       setLoading(true);
       const res = await API.get("/cart");
@@ -49,23 +61,88 @@ export const CartProvider = ({ children }) => {
       return res.data;
     } catch (err) {
       console.error("Fetch cart error:", err);
-      throw err;
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // ✅ Sync cart with auth state
+  // ✅ AUTH SYNC
   useEffect(() => {
+    if (authLoading) return;
+
     if (!isAuthenticated) {
-      resetCartState(); // 🔥 logout fix
+      resetCartState();
       return;
     }
-    fetchCart().catch(() => {});
-  }, [isAuthenticated, fetchCart]);
 
-  // ➕ Add to cart
-  const addToCart = async (productId, quantity = 1) => {
+    fetchCart();
+  }, [isAuthenticated, authLoading, fetchCart]);
+
+  // ➕ ADD TO CART (PRODUCT DATA FIXED)
+  const addToCart = async (productId, quantity = 1, product = null) => {
+    const token = getValidToken();
+
+    if (!token) {
+      setCart((prev) => {
+        const existing = prev.items.find(
+          (i) => i.product_id === productId
+        );
+
+        let updatedItems;
+        if (existing) {
+          updatedItems = prev.items.map((i) =>
+            i.product_id === productId
+              ? {
+                  ...i,
+                  quantity: i.quantity + quantity,
+                  product: i.product || (product
+                    ? {
+                        id: product.id,
+                        name: product.name,
+                        price: product.price,
+                        image: product.image || product.image_url
+                      }
+                    : null)
+                }
+              : i
+          );
+        } else {
+          updatedItems = [
+            ...prev.items,
+            {
+              product_id: productId,
+              quantity,
+              product: product
+                ? {
+                    id: product.id,
+                    name: product.name,
+                    price: product.price,
+                    image: product.image || product.image_url
+                  }
+                : null
+            }
+          ];
+        }
+
+        const total = updatedItems.reduce(
+          (sum, i) => sum + (i.product?.price || 0) * i.quantity,
+          0
+        );
+
+        return {
+          ...prev,
+          items: updatedItems,
+          item_count: updatedItems.reduce(
+            (sum, i) => sum + i.quantity,
+            0
+          ),
+          total
+        };
+      });
+
+      return true;
+    }
+
     try {
       await API.post("/cart/add", {
         product_id: productId,
@@ -79,8 +156,45 @@ export const CartProvider = ({ children }) => {
     }
   };
 
-  // 🔄 Update quantity
+  // 🔄 UPDATE ITEM (PRODUCT PRESERVED)
   const updateCartItem = async (productId, quantity) => {
+    const token = getValidToken();
+
+    if (!token) {
+      setCart((prev) => {
+        let updatedItems;
+
+        if (quantity <= 0) {
+          updatedItems = prev.items.filter(
+            (i) => i.product_id !== productId
+          );
+        } else {
+          updatedItems = prev.items.map((i) =>
+            i.product_id === productId
+              ? { ...i, quantity }
+              : i
+          );
+        }
+
+        const total = updatedItems.reduce(
+          (sum, i) => sum + (i.product?.price || 0) * i.quantity,
+          0
+        );
+
+        return {
+          ...prev,
+          items: updatedItems,
+          item_count: updatedItems.reduce(
+            (sum, i) => sum + i.quantity,
+            0
+          ),
+          total
+        };
+      });
+
+      return true;
+    }
+
     try {
       await API.put("/cart/update", {
         product_id: productId,
@@ -94,7 +208,7 @@ export const CartProvider = ({ children }) => {
     }
   };
 
-  // ❌ Remove item
+  // ❌ REMOVE ITEM
   const removeFromCart = async (productId) => {
     try {
       await API.delete(`/cart/remove/${productId}`);
@@ -106,12 +220,13 @@ export const CartProvider = ({ children }) => {
     }
   };
 
-  // 🧹 Clear cart (manual or silent)
+  // 🧹 CLEAR CART
   const clearCart = async ({ silent = false } = {}) => {
     if (silent) {
-      resetCartState(); // logout safe
+      resetCartState();
       return true;
     }
+
     try {
       await API.delete("/cart/clear");
       await fetchCart();
@@ -122,13 +237,36 @@ export const CartProvider = ({ children }) => {
     }
   };
 
-  // 🔍 Get quantity of product
+  // 🔍 GET ITEM QUANTITY
   const getItemQuantity = (productId) => {
     const item = cart.items.find(
       (item) => item.product_id === productId
     );
     return item ? item.quantity : 0;
   };
+
+  // 🔄 SYNC GUEST CART AFTER LOGIN
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    if (cart.items.length === 0) return;
+
+    const syncGuestCart = async () => {
+      try {
+        for (const item of cart.items) {
+          await API.post("/cart/add", {
+            product_id: item.product_id,
+            quantity: item.quantity
+          });
+        }
+        await fetchCart();
+      } catch (err) {
+        console.error("Guest cart sync error:", err);
+      }
+    };
+
+    syncGuestCart();
+    // eslint-disable-next-line
+  }, [isAuthenticated]);
 
   return (
     <CartContext.Provider
