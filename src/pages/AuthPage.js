@@ -48,7 +48,9 @@ const AuthPage = () => {
         otp,
       });
 
-      localStorage.setItem("token", res.data.token);
+      // 🔴 FIXED LINE (ONLY CHANGE)
+      localStorage.setItem("token", res.data.access_token);
+
       navigate("/");
     } catch (err) {
       console.error(err);
