@@ -78,8 +78,10 @@ export const CartProvider = ({ children }) => {
     fetchCart();
   }, [isAuthenticated, authLoading, fetchCart]);
 
-  // ➕ ADD TO CART (PRODUCT DATA FIXED)
+  // ➕ ADD TO CART (GUARDED)
   const addToCart = async (productId, quantity = 1, product = null) => {
+    if (quantity <= 0) return true;
+
     const token = getValidToken();
 
     if (!token) {
@@ -125,7 +127,8 @@ export const CartProvider = ({ children }) => {
         }
 
         const total = updatedItems.reduce(
-          (sum, i) => sum + (i.product?.price || 0) * i.quantity,
+          (sum, i) =>
+            sum + Math.max(i.quantity, 0) * (i.product?.price || 0),
           0
         );
 
@@ -133,7 +136,7 @@ export const CartProvider = ({ children }) => {
           ...prev,
           items: updatedItems,
           item_count: updatedItems.reduce(
-            (sum, i) => sum + i.quantity,
+            (sum, i) => sum + Math.max(i.quantity, 0),
             0
           ),
           total
@@ -156,28 +159,28 @@ export const CartProvider = ({ children }) => {
     }
   };
 
-  // 🔄 UPDATE ITEM (PRODUCT PRESERVED)
+  // 🔄 UPDATE ITEM (🔥 HARD GUARD ADDED)
   const updateCartItem = async (productId, quantity) => {
     const token = getValidToken();
 
+    // 🔒 GLOBAL GUARD
+    if (quantity <= 0) {
+      await removeFromCart(productId);
+      return true;
+    }
+
+    // 🧑‍🦱 GUEST CART
     if (!token) {
       setCart((prev) => {
-        let updatedItems;
-
-        if (quantity <= 0) {
-          updatedItems = prev.items.filter(
-            (i) => i.product_id !== productId
-          );
-        } else {
-          updatedItems = prev.items.map((i) =>
-            i.product_id === productId
-              ? { ...i, quantity }
-              : i
-          );
-        }
+        const updatedItems = prev.items.map((i) =>
+          i.product_id === productId
+            ? { ...i, quantity }
+            : i
+        );
 
         const total = updatedItems.reduce(
-          (sum, i) => sum + (i.product?.price || 0) * i.quantity,
+          (sum, i) =>
+            sum + Math.max(i.quantity, 0) * (i.product?.price || 0),
           0
         );
 
@@ -185,7 +188,7 @@ export const CartProvider = ({ children }) => {
           ...prev,
           items: updatedItems,
           item_count: updatedItems.reduce(
-            (sum, i) => sum + i.quantity,
+            (sum, i) => sum + Math.max(i.quantity, 0),
             0
           ),
           total
@@ -195,6 +198,7 @@ export const CartProvider = ({ children }) => {
       return true;
     }
 
+    // 🔐 AUTH USER
     try {
       await API.put("/cart/update", {
         product_id: productId,
@@ -210,6 +214,34 @@ export const CartProvider = ({ children }) => {
 
   // ❌ REMOVE ITEM
   const removeFromCart = async (productId) => {
+    const token = getValidToken();
+
+    if (!token) {
+      setCart((prev) => {
+        const updatedItems = prev.items.filter(
+          (i) => i.product_id !== productId
+        );
+
+        const total = updatedItems.reduce(
+          (sum, i) =>
+            sum + Math.max(i.quantity, 0) * (i.product?.price || 0),
+          0
+        );
+
+        return {
+          ...prev,
+          items: updatedItems,
+          item_count: updatedItems.reduce(
+            (sum, i) => sum + Math.max(i.quantity, 0),
+            0
+          ),
+          total
+        };
+      });
+
+      return true;
+    }
+
     try {
       await API.delete(`/cart/remove/${productId}`);
       await fetchCart();
@@ -242,7 +274,7 @@ export const CartProvider = ({ children }) => {
     const item = cart.items.find(
       (item) => item.product_id === productId
     );
-    return item ? item.quantity : 0;
+    return item ? Math.max(item.quantity, 0) : 0;
   };
 
   // 🔄 SYNC GUEST CART AFTER LOGIN
@@ -253,10 +285,12 @@ export const CartProvider = ({ children }) => {
     const syncGuestCart = async () => {
       try {
         for (const item of cart.items) {
-          await API.post("/cart/add", {
-            product_id: item.product_id,
-            quantity: item.quantity
-          });
+          if (item.quantity > 0) {
+            await API.post("/cart/add", {
+              product_id: item.product_id,
+              quantity: item.quantity
+            });
+          }
         }
         await fetchCart();
       } catch (err) {

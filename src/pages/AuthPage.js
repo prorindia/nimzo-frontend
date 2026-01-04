@@ -1,16 +1,21 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import API from "../api/api";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
 
 const AuthPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { sendOtp, verifyOtp } = useAuth();
+
+  const from = location.state?.from || "/";
+
   const [step, setStep] = useState("PHONE");
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const sendOtp = async () => {
+  const handleSendOtp = async () => {
     if (phone.length !== 10) {
       setError("Enter valid 10 digit mobile number");
       return;
@@ -20,19 +25,16 @@ const AuthPage = () => {
       setLoading(true);
       setError("");
 
-      // ✅ CORRECT
-      await API.post("/auth/send-otp", { phone });
-
-      setStep("OTP");
-    } catch (err) {
-      console.error(err);
+      const success = await sendOtp(phone);
+      if (success) setStep("OTP");
+    } catch {
       setError("OTP send failed");
     } finally {
       setLoading(false);
     }
   };
 
-  const verifyOtp = async () => {
+  const handleVerifyOtp = async () => {
     if (otp.length !== 6) {
       setError("Enter valid OTP");
       return;
@@ -42,18 +44,11 @@ const AuthPage = () => {
       setLoading(true);
       setError("");
 
-      // ✅ CORRECT
-      const res = await API.post("/auth/verify-otp", {
-        phone,
-        otp,
-      });
-
-      // 🔴 FIXED LINE (ONLY CHANGE)
-      localStorage.setItem("token", res.data.access_token);
-
-      navigate("/");
-    } catch (err) {
-      console.error(err);
+      const success = await verifyOtp(phone, otp);
+      if (success) {
+        navigate(from, { replace: true });
+      }
+    } catch {
       setError("Invalid OTP");
     } finally {
       setLoading(false);
@@ -77,7 +72,7 @@ const AuthPage = () => {
               className="w-full border rounded px-3 py-2"
             />
             <button
-              onClick={sendOtp}
+              onClick={handleSendOtp}
               disabled={loading}
               className="w-full bg-[#CCFF00] py-2 rounded font-bold"
             >
@@ -98,7 +93,7 @@ const AuthPage = () => {
               className="w-full border rounded px-3 py-2"
             />
             <button
-              onClick={verifyOtp}
+              onClick={handleVerifyOtp}
               disabled={loading}
               className="w-full bg-[#CCFF00] py-2 rounded font-bold"
             >
