@@ -54,16 +54,8 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // 🔓 LOGOUT (🔥 FINAL & CORRECT)
-  const logout = async () => {
-    try {
-      // 🔥 clear backend cart for this user
-      await API.delete("/cart/clear");
-    } catch (e) {
-      // ignore
-    }
-
-    // 🔥 clear auth
+  // 🔓 LOGOUT (SAFE — CART CLEAR REMOVED)
+  const logout = () => {
     localStorage.removeItem("token");
     delete API.defaults.headers.common["Authorization"];
     setToken(null);

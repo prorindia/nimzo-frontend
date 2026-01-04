@@ -7,7 +7,7 @@ const AuthPage = () => {
   const location = useLocation();
   const { sendOtp, verifyOtp } = useAuth();
 
-  const from = location.state?.from || "/";
+  const from = location.state?.from?.pathname || "/";
 
   const [step, setStep] = useState("PHONE");
   const [phone, setPhone] = useState("");
@@ -24,11 +24,12 @@ const AuthPage = () => {
     try {
       setLoading(true);
       setError("");
-
-      const success = await sendOtp(phone);
-      if (success) setStep("OTP");
-    } catch {
-      setError("OTP send failed");
+      const ok = await sendOtp(phone);
+      if (ok) {
+        setStep("OTP");
+      } else {
+        setError("OTP send failed");
+      }
     } finally {
       setLoading(false);
     }
@@ -43,13 +44,12 @@ const AuthPage = () => {
     try {
       setLoading(true);
       setError("");
-
-      const success = await verifyOtp(phone, otp);
-      if (success) {
+      const ok = await verifyOtp(phone, otp);
+      if (ok) {
         navigate(from, { replace: true });
+      } else {
+        setError("Invalid OTP");
       }
-    } catch {
-      setError("Invalid OTP");
     } finally {
       setLoading(false);
     }

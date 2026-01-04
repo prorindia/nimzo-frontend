@@ -1,22 +1,26 @@
-import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, User, MapPin, Package, LogOut, Shield } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
-import { Button } from '../components/ui/button';
+import React, { useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { ArrowLeft, User, MapPin, Package, LogOut, Shield } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
+import { Button } from "../components/ui/button";
 
 const ProfilePage = () => {
   const { user, isAuthenticated, isAdmin, logout } = useAuth();
   const navigate = useNavigate();
 
+  // ✅ FIX: redirect ONLY inside useEffect
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate("/auth", { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
+
   const handleLogout = () => {
     logout();
-    navigate('/');
+    navigate("/");
   };
 
-  if (!isAuthenticated) {
-    navigate('/auth');
-    return null;
-  }
+  if (!isAuthenticated) return null;
 
   return (
     <div className="min-h-screen pb-24" data-testid="profile-page">
@@ -27,7 +31,10 @@ const ProfilePage = () => {
             <Link to="/" className="p-2 -ml-2 rounded-full hover:bg-gray-100">
               <ArrowLeft size={20} />
             </Link>
-            <h1 className="text-xl font-bold text-[#2D0036]" style={{ fontFamily: 'Manrope, sans-serif' }}>
+            <h1
+              className="text-xl font-bold text-[#2D0036]"
+              style={{ fontFamily: "Manrope, sans-serif" }}
+            >
               Profile
             </h1>
           </div>
@@ -40,11 +47,13 @@ const ProfilePage = () => {
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 rounded-full bg-[#CCFF00] flex items-center justify-center">
               <span className="text-2xl font-bold text-[#2D0036]">
-                {user?.name?.charAt(0).toUpperCase()}
+                {user?.name?.charAt(0)?.toUpperCase()}
               </span>
             </div>
             <div>
-              <h2 className="text-xl font-bold text-[#2D0036]">{user?.name}</h2>
+              <h2 className="text-xl font-bold text-[#2D0036]">
+                {user?.name}
+              </h2>
               <p className="text-gray-500">{user?.email}</p>
               <p className="text-sm text-gray-400">{user?.phone}</p>
             </div>
